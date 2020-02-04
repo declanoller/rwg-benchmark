@@ -1,0 +1,63 @@
+{
+  "CartPole-v0": {
+    "env_type" : "classic_control",
+    "solved_avg_reward" : 195.0,
+    "N_eval_trials" : 100,
+    "eps_before_solve" : 24
+  },
+  "MountainCar-v0": {
+    "env_type" : "classic_control",
+    "solved_avg_reward" : -110.0,
+    "N_eval_trials" : 100,
+    "eps_before_solve" : 75
+  },
+  "MountainCarContinuous-v0": {
+    "env_type" : "classic_control",
+    "solved_avg_reward" : 90.0,
+    "N_eval_trials" : 100,
+    "eps_before_solve" : 18
+  },
+  "Pendulum-v0": {
+    "env_type" : "classic_control",
+    "solved_avg_reward" : -123.0,
+    "N_eval_trials" : 100
+  },
+  "Acrobot-v1": {
+    "env_type" : "classic_control",
+    "solved_avg_reward" : -42.3,
+    "N_eval_trials" : 100
+  },
+
+
+
+
+
+  "LunarLander-v2": {
+    "env_type" : "box2d",
+    "solved_avg_reward" : 200.0,
+    "N_eval_trials" : 100,
+    "eps_before_solve" : 100
+  },
+  "LunarLanderContinuous-v2": {
+    "env_type" : "box2d",
+    "solved_avg_reward" : 200.0,
+    "N_eval_trials" : 100,
+    "eps_before_solve" : 100
+  },
+  "BipedalWalker-v2": {
+    "env_type" : "box2d",
+    "solved_avg_reward" : 300.0,
+    "N_eval_trials" : 100,
+    "eps_before_solve" : 800
+  },
+  "BipedalWalkerHardcore-v2": {
+    "env_type" : "box2d",
+    "solved_avg_reward" : 300.0,
+    "N_eval_trials" : 100
+  },
+  "CarRacing-v0": {
+    "env_type" : "box2d",
+    "solved_avg_reward" : 900.0,
+    "N_eval_trials" : 100
+  }
+}
