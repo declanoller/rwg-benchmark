@@ -1,79 +1,109 @@
 
 # Random Weight Guessing (RWG) benchmarking
 
-For benchmarking, inspired by the [tinynet](https://github.com/giuse/tinynet) library.
+Repository for the paper "Analyzing Reinforcement Learning Benchmarks with Random Weight Guessing", accepted for publication in AAMAS 2020.
 
-RWG is simply randomly guessing the weights of a neural network (NN) until it gives the desired behavior. It's strangely effective at many tasks. A likely hypothesis that's been put forward is that valid sets of weights are "dense" in weight-space; i.e., a relatively large portion of the possible weight sets solve the problem.
+## Overview of RWG
 
-Although RWG would probably have trouble with very complex tasks, the fact that it does so reasonably well a these simpler ones indicates that at the very least, it should be a good benchmark to compare other algorithms to.
+RWG is simply randomly guessing the weights of a neural network (NN) until it gives the desired behavior at whatever task it's being used for. There is no learning, gradient descent, or training. It should be noted that RWG is *not intended* to be an effective strategy; in fact, it's of interest because it is one of the simplest and least biased methods possible. This allows for robust and reproducible analysis of typical environments used for benchmarking reinforcement learning (RL) algorithms. Its brute force collection of statistics for a controller in an environment offers insight into the dynamics of the environment.
+
+It might be surprising that RWG relatively easily "solves" some simpler environments. A likely hypothesis that's been put forward is that valid sets of weights are "dense" in weight-space; i.e., a relatively large portion of the possible weight sets solve the problem. For more complex environments, a more complex controller is required, and in the case of NNs, this means more weights. Although it's *possible* for RWG to "solve" a controller with any number of weights, as the number of weights increases, the volume in weight space grows exponentially (i.e., the "curse of dimensionality").
+
+<p align="center">
+  <img width="600" height="400" src="misc/readme_figs/cartpole-v0_ep.gif">
+</p>
 
 ## Overview of system
 
-We select an OpenAI gym environment (env), and a simple NN topology (for example, no hidden layers, only weights connecting inputs to outputs) to control the policy for an agent in that env. A "generation" is defined as a set of (`N_trials`) episodes for which the NN has the same set of weights; because different initial env conditions give different scores for the same NN, we want to evaluate the same NN on more than one trial in the environment to get a more accurate measurement of its average behavior. At the beginning of each generation, the NN is "reset" such that a new random set of weights is chosen from a Normal distribution with mean 0, standard deviation 1.
+We select an OpenAI gym environment (env), and a simple NN architecture (for example, one hidden layer of 4 units, tanh nonlinearity, no bias units) to control the policy for an agent in that env. A "sample" is defined as the sampled set of weights that make up a NN controller. For each sample, it is run in the env for (`N_episodes`) episodes, because different initial env conditions give different scores for the same NN. This process is repeated `N_samples` times. To produce each sample, a set of weights is chosen from a Normal distribution with mean 0, standard deviation 1. Note that because there is no learning and nothing is sequential, all samples are independent from each other and it's highly parallelizable.
 
-If we do this for many generations, for example with the `CartPole-v0` env, we can produce a plot of the mean score (across the `N_trials` episodes) of each generation:
+Typically, the above procedure (which generates a matrix of `N_samples` x `N_episodes` of episode scores) is repeated for `N_architectures` NN architectues as well, to form a "score tensor" of dimension `N_architectures` x `N_samples` x `N_episodes`.
 
-<p align="center">
-  <img width="640" height="480" src="misc/readme_figs/CartPole-v0_score_mean_timeseries_12-08-2019_22-35-17.00.png">
-</p>
+Having done this for an environment, here are some of the statistics one can produce.
 
-or, displayed more clearly as a log histogram:
+First, for a given NN architecture `a`, for each sample `n`, we can take its mean score across all its episodes, `M_a,n`, and form a histogram of these. Here is that, for `N_samples = 10**4` and `N_episodes = 20`:
 
 <p align="center">
-  <img width="640" height="480" src="misc/readme_figs/CartPole-v0_all_scores_log_dist_12-08-2019_22-35-17.00.png">
+  <img width="640" height="480" src="misc/readme_figs/from_paper/CartPole-v0_0HL_ex_log_dist.png">
 </p>
 
-or, we can sort the generations by mean score (the black line), but at each one, also plot the scores (red circles) for the individual episodes of that generation:
+Note the log yscale. `CartPole-v0` is the simplest environment for RWG to solve, with ~4% of samples getting a mean score in the highest bin.
+
+Similarly, we can rank the samples by their `M_a,n`. Here, each position on the horizontal axis corresponds to a sample, and all of the sample's episode scores are plotted at this x position (with differing y positions dependent on each episode score). The black line shows `M_a,n`, and the highlighted green dots correspond to episodes that achieved the top 0.1% of all episode scores.
 
 <p align="center">
-  <img width="640" height="480" src="misc/readme_figs/CartPole-v0_score_trials_ordered_12-08-2019_22-35-17.00.png">
+  <img width="640" height="480" src="misc/readme_figs/from_paper/CartPole-v0_0HL_ex_score_trials_ordered.png">
 </p>
 
-You can see that there are already many probable solutions (average scores of ~200). We can run and save an episode with the best performing ones:
+We can also plot the variance of episode scores for each sample, `V_a,n`:
 
 <p align="center">
-  <img width="600" height="400" src="misc/cartpole-v0_ep.gif">
+  <img width="640" height="480" src="misc/readme_figs/from_paper/CartPole-v0_0HL_ex_variance.png">
 </p>
 
-Note that because it's doing RWG, the results of runs are independent of the previous ones, i.e., nothing "builds off" of previous runs. However, running for longer obviously randomly samples the weight-space longer, increasing the chances of stumbling upon a solution.
-
-## Other analyses
-
-What other information can we get from analyzing this very simple data collection?
-
-If we plot the variance of scores of the trials in each generation as a function of their mean score, we can see a pattern emerge:
-
-<p align="center">
-  <img width="640" height="480" src="misc/readme_figs/CartPole-v0_variance_meanscore_12-08-2019_22-35-17.00.png">
-</p>
-
-It appears that for increasing mean score, the variance increases, until a certain point, where for the very high mean scores, the variance decreases again. One explanation for this is that some NNs have sets of weights that can *never* perform well (giving a low mean score), others have ones that do work well for some of the initial conditions (i.e., "always go left"), giving a mix of very high and very low scores, and then some sets of weights give rise to NNs that *always* perform well, meaning the variance is very low.
-
-Not as illuminating in this case, but another analysis tool could be looking at the average L2 sum of the weights of NNs, as a function of their mean scores:
-
-<p align="center">
-  <img width="640" height="480" src="misc/readme_figs/CartPole-v0_L2_vs_meanscore_12-08-2019_22-35-17.00.png">
-</p>
-
-Similarly, we can look at the L0, which could reveal whether weight sets have a bias in the positive or negative direction.
 
 
 ## Use
 
-To run a simple example of RWG for `CartPole-v0`, we can run `python3 scripts/evolve_example.py`, which does:
+To run a simple example of RWG for the `CartPole-v0` env, we can run `python3 scripts/sample_example.py`:
 
 ```
 import path_utils
-from Evolve import Evolve
+from Sample import Sample
 
-e = Evolve('CartPole-v0', NN='FFNN', N_hidden_layers=0)
-evo_dict = e.evolve(2000, N_trials=20, print_gen=True)
-e.save_all_evo_stats(evo_dict)
+e = Sample('CartPole-v0', NN='FFNN', N_hidden_layers=0, use_bias=False)
+sample_dict = e.sample(2000, N_episodes=20, print_samp_num=True)
+e.save_all_sample_stats(sample_dict)
 ```
 
-This runs a NN with no hidden layers, for 2000 generations, of 20 episodes each, and then plots all the results to a directory it creates.
+This runs a NN with no hidden layers, for 2000 samples, of 20 episodes each, and then plots all the results to a directory it creates in `output/`.
 
-More to be added!
+A slightly more complex example does the same process, for various combinations of architectures, environments, and configurations, in `scripts/stats_example.py`:
+
+```
+import path_utils
+import Statistics
+
+'''
+For getting statistics with various combos of parameters.
+'''
+
+############################### Basic runs
+Statistics.run_vary_params(
+    {
+        'NN' : 'FFNN',
+        'N_hidden_units' : 4,
+        'use_bias' : False,
+        'max_episode_steps' : 200
+    },
+    {
+        'env_name' : ['CartPole-v0', 'Pendulum-v0', 'MountainCar-v0'],
+        'N_hidden_layers' : [1, 2],
+    },
+    N_samples=1000,
+    N_episodes=10
+)
+
+```
+
+In Statistics.run_vary_params(), two dicts are passed: the first for parameters that will remain constant across all combinations, and the second for parameters to vary. The combinations run are a cross product of all the varying parameters; in the above example, `env_name` will vary over 3 values and `N_hidden_layers` will vary over 2 values, so it will collect statistics for 3*2 = 6 total combinations.
+
+
+## Details
+
+### Hyperparameters?
+
+As simple as this is, there are still technically hyperparameters, depending on how loosely you want to define the term:
+
+* For the NN nonlinearity, `tanh` was used, but any other could have been.
+* The NN architectures to look at have to be chosen as well.
+* Similarly, we sampled the weights from a normal distribution, but another distribution could be used.
+
+### Bias terms
+
+### Output scaling
+
+
 
 ## Relevant links
 

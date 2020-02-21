@@ -1,31 +1,31 @@
+import path_utils
 import numpy as np
 import gym
 import matplotlib.pyplot as plt
 import os, json, time
 
-import path_utils
 import Agent
 gym.logger.set_level(40)
 
 '''
 
-Evolve class
+Sample class
 --------------------
 
-Used to run an agent in a gym env over a number (N_gen) of generations. Each
-generation, the same agent is run for N_trials, because for many envs, different
+Used to run an agent in a gym env over a number (N_samples) of samples. Each
+sample, the same agent is run for N_episodes, because for many envs, different
 initial conditions will give different scores for the same agent.
 
-After every generation, Evolve.get_next_generation() is called, which gets
+After every sample, Sample.get_next_sample() is called, which gets
 the next agent. For RWG, this simply involves picking a new set of random
-weights, so there's no real "progression" or relation between generations.
+weights, so there's no real "progression" or relation between samples.
 However, this offers the opportunity to use other methods (CMA-ES, etc).
 
 Uses the Agent class, which handles the NN and related stuff.
 
 '''
 
-class Evolve:
+class Sample:
 
     def __init__(self, env_name, **kwargs):
 
@@ -57,7 +57,7 @@ class Evolve:
         # hold the results of this run, but you can supply your own externally.
         self.run_dir = kwargs.get('run_dir', None)
         if self.run_dir is None:
-            self.run_dir = os.path.join(base_dir, f'{self.env_name}_evo_{self.dt_str}')
+            self.run_dir = os.path.join(base_dir, f'{self.env_name}_sample_{self.dt_str}')
             os.mkdir(self.run_dir)
 
         # For saving the parameters used for the run. Run last in __init__().
@@ -101,17 +101,17 @@ class Evolve:
         self.N_eval_trials = envs_dict[env_name]['N_eval_trials']
 
 
-    def evolve(self, N_gen, **kwargs):
+    def sample(self, N_samples, **kwargs):
 
         '''
-        Evolve the agent for N_gen generations,
+        Sample the agent for N_samples samples,
         improving it with the selection mechanism.
 
-        Each generation, use the same agent for N_trials to try and get a more
+        Each sample, use the same agent for N_episodes to try and get a more
         representative score from it.
         '''
 
-        N_trials = kwargs.get('N_trials', 3)
+        N_episodes = kwargs.get('N_episodes', 3)
 
         all_scores = []
         best_scores = []
@@ -125,22 +125,22 @@ class Evolve:
         start_time = time.time()
 
         # Gameplay loop
-        for gen in range(N_gen):
+        for samp_num in range(N_samples):
 
-            if kwargs.get('print_gen', False):
-                if gen % max(1, N_gen // 10) == 0:
-                    print(f'\nGeneration {gen}/{N_gen}')
+            if kwargs.get('print_samp_num', False):
+                if samp_num % max(1, N_samples // 10) == 0:
+                    print(f'Sample {samp_num}/{N_samples}')
 
             score_trials = []
-            for _ in range(N_trials):
+            for _ in range(N_episodes):
                 # Run episode, get score, record score
                 score_trials.append(self.run_episode())
 
-            # Take mean score of N_trials, record if best score yet
+            # Take mean score of N_episodes, record if best score yet
             mean_score = np.mean(score_trials)
             if (best_score is None) or (mean_score > best_score):
                 best_score = mean_score
-                #print(f'New best score {best_score:.3f} in generation {gen}')
+                #print(f'New best score {best_score:.3f} in sample {samp_num}')
                 best_weights = self.agent.get_weight_matrix()
 
             # Get stats about the weights of the NN
@@ -154,10 +154,10 @@ class Evolve:
             all_trials.append(score_trials)
 
             # Get next agent.
-            self.get_next_generation(all_scores, best_scores, best_weights)
+            self.get_next_sample(all_scores, best_scores, best_weights)
 
             if self.agent.search_done:
-                print(f'Search done in gen {gen}\n\n')
+                print(f'Search done in samp_num {samp_num}\n\n')
                 break
 
 
@@ -171,8 +171,8 @@ class Evolve:
             'L0_weights' : L0_weights,
             'L1_weights' : L1_weights,
             'L2_weights' : L2_weights,
-            'N_gen' : N_gen,
-            'N_trials' : N_trials,
+            'N_samples' : N_samples,
+            'N_episodes' : N_episodes,
             'total_runtime' : total_runtime
         }
 
@@ -220,10 +220,10 @@ class Evolve:
         return score
 
 
-    def get_next_generation(self, all_scores, best_scores, best_weights):
+    def get_next_sample(self, all_scores, best_scores, best_weights):
 
         '''
-        For getting the next generation using some selection criteria.
+        For getting the next sample using some selection criteria.
         Right now it's just RWG, which resets the weights randomly.
         '''
 
@@ -238,11 +238,11 @@ class Evolve:
 
     ################################ Plotting/saving functions
 
-    def plot_score_percentiles(self, evo_dict, **kwargs):
+    def plot_score_percentiles(self, sample_dict, **kwargs):
 
         ###################### In mean order, with all trials
 
-        all_trials = evo_dict['all_trials']
+        all_trials = sample_dict['all_trials']
         all_trials_mean = np.mean(all_trials, axis=1)
 
         percs = np.linspace(0, 100.0, 20)
@@ -275,11 +275,11 @@ class Evolve:
 
 
 
-    def plot_scores(self, evo_dict, **kwargs):
+    def plot_scores(self, sample_dict, **kwargs):
 
         '''
         For plotting results. Pass it a dict of the form
-        returned by evolve().
+        returned by sample().
 
         Plots several versions of the same data (only mean, in the order they're
         run, mean, but ordered by increasing value, and then the mean and the scores
@@ -289,10 +289,10 @@ class Evolve:
         ###################### In time order
 
         plt.close('all')
-        plt.plot(evo_dict['all_scores'], color='dodgerblue', label='All mean scores')
+        plt.plot(sample_dict['all_scores'], color='dodgerblue', label='All mean scores')
 
-        plt.xlabel('Generation', **self.plot_label_params)
-        plt.ylabel('Generation mean score', **self.plot_label_params)
+        plt.xlabel('Sample', **self.plot_label_params)
+        plt.ylabel('Sample mean score', **self.plot_label_params)
 
         plt.xticks(**self.plot_tick_params)
         plt.yticks(**self.plot_tick_params)
@@ -304,14 +304,14 @@ class Evolve:
 
         ###################### In mean order
 
-        all_scores = evo_dict['all_scores']
+        all_scores = sample_dict['all_scores']
         all_scores = sorted(all_scores)
 
         plt.close('all')
         plt.plot(all_scores, color='mediumseagreen')
 
-        plt.xlabel('Sorted by generation mean score', **self.plot_label_params)
-        plt.ylabel('Generation mean score', **self.plot_label_params)
+        plt.xlabel('Sorted by sample mean score', **self.plot_label_params)
+        plt.ylabel('Sample mean score', **self.plot_label_params)
 
         plt.xticks(**self.plot_tick_params)
         plt.yticks(**self.plot_tick_params)
@@ -323,7 +323,7 @@ class Evolve:
 
         ###################### In mean order, with all trials
 
-        all_trials = evo_dict['all_trials']
+        all_trials = sample_dict['all_trials']
         all_trials = sorted(all_trials, key=lambda x: np.mean(x))
 
         all_trials_mean = np.mean(all_trials, axis=1)
@@ -355,7 +355,7 @@ class Evolve:
         plt.savefig(os.path.join(self.run_dir, '{}_score_trials_ordered_{}.png'.format(self.env_name, self.dt_str)))
 
 
-    def plot_weight_stats(self, evo_dict, **kwargs):
+    def plot_weight_stats(self, sample_dict, **kwargs):
 
 
         '''
@@ -365,16 +365,16 @@ class Evolve:
         '''
 
 
-        L0_weights = evo_dict['L0_weights']
-        L1_weights = evo_dict['L1_weights']
-        L2_weights = evo_dict['L2_weights']
-        all_scores = evo_dict['all_scores']
+        L0_weights = sample_dict['L0_weights']
+        L1_weights = sample_dict['L1_weights']
+        L2_weights = sample_dict['L2_weights']
+        all_scores = sample_dict['all_scores']
 
         ###################### L0
         plt.close('all')
         plt.plot(all_scores, L0_weights, 'o', color='forestgreen', alpha=self.plot_pt_alpha)
 
-        plt.xlabel('Generation mean score', **self.plot_label_params)
+        plt.xlabel('Sample mean score', **self.plot_label_params)
         plt.ylabel('L0/N_weights', **self.plot_label_params)
 
         plt.xticks(**self.plot_tick_params)
@@ -390,7 +390,7 @@ class Evolve:
         plt.close('all')
         plt.plot(all_scores, L1_weights, 'o', color='forestgreen', alpha=self.plot_pt_alpha)
 
-        plt.xlabel('Generation mean score', **self.plot_label_params)
+        plt.xlabel('Sample mean score', **self.plot_label_params)
         plt.ylabel('L1/N_weights', **self.plot_label_params)
 
         plt.xticks(**self.plot_tick_params)
@@ -405,7 +405,7 @@ class Evolve:
         plt.close('all')
         plt.plot(all_scores, L2_weights, 'o', color='forestgreen', alpha=self.plot_pt_alpha)
 
-        plt.xlabel('Generation mean score', **self.plot_label_params)
+        plt.xlabel('Sample mean score', **self.plot_label_params)
         plt.ylabel('L2/N_weights', **self.plot_label_params)
 
         plt.xticks(**self.plot_tick_params)
@@ -417,25 +417,25 @@ class Evolve:
         plt.savefig(os.path.join(self.run_dir, '{}_L2_vs_meanscore_{}.png'.format(self.env_name, self.dt_str)))
 
 
-    def plot_all_trial_stats(self, evo_dict, **kwargs):
+    def plot_all_trial_stats(self, sample_dict, **kwargs):
 
         '''
-        Plots the variance, min, and max of the scores for the N_trials of
+        Plots the variance, min, and max of the scores for the N_episodes of
         each episode, as a function of the mean score for that episode.
 
         '''
 
-        N_gen = len(evo_dict['all_trials'])
-        N_trials = len(evo_dict['all_trials'][0])
+        N_samples = len(sample_dict['all_trials'])
+        N_episodes = len(sample_dict['all_trials'][0])
 
 
         ####################### Episode score variance
         plt.close('all')
 
-        sigma = np.std(evo_dict['all_trials'], axis=1)
+        sigma = np.std(sample_dict['all_trials'], axis=1)
 
 
-        plt.plot(evo_dict['all_scores'], sigma, 'o', color='mediumorchid', alpha=self.plot_pt_alpha)
+        plt.plot(sample_dict['all_scores'], sigma, 'o', color='mediumorchid', alpha=self.plot_pt_alpha)
 
         plt.xlabel('$M_a(n)$', **self.plot_label_params)
         plt.ylabel('$V_{a,n}$', **self.plot_label_params)
@@ -449,20 +449,20 @@ class Evolve:
         plt.savefig(fname)
 
 
-        ####################### Min generation score
+        ####################### Min sample score
         plt.close('all')
 
-        trial_min = np.min(evo_dict['all_trials'], axis=1)
+        trial_min = np.min(sample_dict['all_trials'], axis=1)
 
-        plt.plot(evo_dict['all_scores'], trial_min, 'o', color='dodgerblue', alpha=self.plot_pt_alpha)
+        plt.plot(sample_dict['all_scores'], trial_min, 'o', color='dodgerblue', alpha=self.plot_pt_alpha)
 
-        plt.xlabel('Generation mean score', **self.plot_label_params)
-        plt.ylabel('Min of generation scores', **self.plot_label_params)
+        plt.xlabel('Sample mean score', **self.plot_label_params)
+        plt.ylabel('Min of sample scores', **self.plot_label_params)
 
         plt.xticks(**self.plot_tick_params)
         plt.yticks(**self.plot_tick_params)
 
-        plt.title(f'{self.env_name} environment,\n min score of N_trials = {N_trials}', **self.plot_title_params)
+        plt.title(f'{self.env_name} environment,\n min score of N_episodes = {N_episodes}', **self.plot_title_params)
         plt.tight_layout()
         fname = os.path.join(self.run_dir, '{}_min_score_{}.png'.format(self.env_name, self.dt_str))
         plt.savefig(fname)
@@ -470,17 +470,17 @@ class Evolve:
         ####################### Max episode score
         plt.close('all')
 
-        trial_max = np.max(evo_dict['all_trials'], axis=1)
+        trial_max = np.max(sample_dict['all_trials'], axis=1)
 
-        plt.plot(evo_dict['all_scores'], trial_max, 'o', color='dodgerblue', alpha=self.plot_pt_alpha)
+        plt.plot(sample_dict['all_scores'], trial_max, 'o', color='dodgerblue', alpha=self.plot_pt_alpha)
 
-        plt.xlabel('Generation mean score', **self.plot_label_params)
-        plt.ylabel('Max of generation scores', **self.plot_label_params)
+        plt.xlabel('Sample mean score', **self.plot_label_params)
+        plt.ylabel('Max of sample scores', **self.plot_label_params)
 
         plt.xticks(**self.plot_tick_params)
         plt.yticks(**self.plot_tick_params)
 
-        plt.title(f'{self.env_name} environment,\n max score of N_trials = {N_trials}', **self.plot_title_params)
+        plt.title(f'{self.env_name} environment,\n max score of N_episodes = {N_episodes}', **self.plot_title_params)
         plt.tight_layout()
         fname = os.path.join(self.run_dir, '{}_max_score_{}.png'.format(self.env_name, self.dt_str))
         plt.savefig(fname)
@@ -489,19 +489,19 @@ class Evolve:
         ####################### Min and max episode score
         plt.close('all')
 
-        trial_min = np.min(evo_dict['all_trials'], axis=1)
-        trial_max = np.max(evo_dict['all_trials'], axis=1)
+        trial_min = np.min(sample_dict['all_trials'], axis=1)
+        trial_max = np.max(sample_dict['all_trials'], axis=1)
 
-        plt.plot(evo_dict['all_scores'], trial_min, 'o', color='mediumturquoise', alpha=self.plot_pt_alpha)
-        plt.plot(evo_dict['all_scores'], trial_max, 'o', color='plum', alpha=self.plot_pt_alpha)
+        plt.plot(sample_dict['all_scores'], trial_min, 'o', color='mediumturquoise', alpha=self.plot_pt_alpha)
+        plt.plot(sample_dict['all_scores'], trial_max, 'o', color='plum', alpha=self.plot_pt_alpha)
 
-        plt.xlabel('Generation mean score', **self.plot_label_params)
-        plt.ylabel('Min and max of generation scores', **self.plot_label_params)
+        plt.xlabel('Sample mean score', **self.plot_label_params)
+        plt.ylabel('Min and max of sample scores', **self.plot_label_params)
 
         plt.xticks(**self.plot_tick_params)
         plt.yticks(**self.plot_tick_params)
 
-        plt.title(f'{self.env_name} environment, min (turquoise) and \nmax (purple) score of N_trials = {N_trials}', **self.plot_title_params)
+        plt.title(f'{self.env_name} environment, min (turquoise) and \nmax (purple) score of N_episodes = {N_episodes}', **self.plot_title_params)
         plt.tight_layout()
         fname = os.path.join(self.run_dir, '{}_min_max_score_{}.png'.format(self.env_name, self.dt_str))
         plt.savefig(fname)
@@ -511,7 +511,7 @@ class Evolve:
 
         '''
         Pass it the weights matrix you want to run it with,
-        e.g., best_weights returned from evolve(). It runs
+        e.g., best_weights returned from sample(). It runs
         an episode and renders it.
         '''
 
@@ -523,7 +523,7 @@ class Evolve:
 
         '''
         Pass it the weights matrix you want to run it with,
-        e.g., best_weights returned from evolve(). It runs
+        e.g., best_weights returned from sample(). It runs
         an episode and renders it.
         '''
 
@@ -531,37 +531,37 @@ class Evolve:
         ep_score = self.run_episode(show_ep=True, record_ep=True)
 
 
-    def save_all_evo_stats(self, evo_dict, **kwargs):
+    def save_all_sample_stats(self, sample_dict, **kwargs):
         '''
-        For saving all the stats and plots for the evolution, just a collector
+        For saving all the stats and plots for the sampling, just a collector
         function.
 
         '''
 
-        self.save_evo_dict(evo_dict)
+        self.save_sample_dict(sample_dict)
         if kwargs.get('save_plots', True):
-            self.plot_scores(evo_dict)
-            self.plot_all_trial_stats(evo_dict)
-            self.plot_evo_histogram(evo_dict['all_scores'], 'Mean generation score', f'{self.env_name}_all_scores_dist_{self.dt_str}.png', plot_log=True, **kwargs)
-            self.plot_weight_stats(evo_dict)
-            self.plot_score_percentiles(evo_dict)
+            self.plot_scores(sample_dict)
+            self.plot_all_trial_stats(sample_dict)
+            self.plot_sample_histogram(sample_dict['all_scores'], 'Mean sample score', f'{self.env_name}_all_scores_dist_{self.dt_str}.png', plot_log=True, **kwargs)
+            self.plot_weight_stats(sample_dict)
+            self.plot_score_percentiles(sample_dict)
 
 
-    def save_evo_dict(self, evo_dict):
+    def save_sample_dict(self, sample_dict):
         '''
         For saving the results of the run in a .json file, for later analysis.
         '''
 
         # Maybe not necessary, but to be careful to not modify the original
-        evo_dict_copy = evo_dict.copy()
-        if 'best_weights' in evo_dict_copy.keys():
-            evo_dict_copy.pop('best_weights')
+        sample_dict_copy = sample_dict.copy()
+        if 'best_weights' in sample_dict_copy.keys():
+            sample_dict_copy.pop('best_weights')
 
-        fname = os.path.join(self.run_dir, 'evo_stats.json')
+        fname = os.path.join(self.run_dir, 'sample_stats.json')
         # Save distributions to file
 
         with open(fname, 'w+') as f:
-            json.dump(evo_dict_copy, f, indent=4)
+            json.dump(sample_dict_copy, f, indent=4)
 
 
     def save_params_dict(self):
@@ -599,7 +599,7 @@ class Evolve:
         self.agent.NN_type = self.run_params['NN_type'] # not necessary probably? Be careful
 
 
-    def plot_evo_histogram(self, dist, dist_label, fname, **kwargs):
+    def plot_sample_histogram(self, dist, dist_label, fname, **kwargs):
 
         '''
         For plotting the distribution of various benchmarking stats for self.env_name.
@@ -656,11 +656,11 @@ class Evolve:
             plt.savefig(fname.replace('dist', 'log_dist'))
 
 
-def replot_evo_dict_from_dir(dir, **kwargs):
+def replot_sample_dict_from_dir(dir, **kwargs):
 
     '''
     Minor fix: originally this would open run_params.json and read the run_dir
-    field, and pass that to the Evolve() object. However, that caused trouble
+    field, and pass that to the Sample() object. However, that caused trouble
     if the run was done on another machine, because the path was absolute,
     so it would then be looking for a path that might not exist on the machine
     that this function is being run on.
@@ -676,8 +676,8 @@ def replot_evo_dict_from_dir(dir, **kwargs):
     run_params_json_fname = os.path.join(dir, 'run_params.json')
     assert os.path.exists(run_params_json_fname), f'run_params.json must exist in dir to load from! {run_params_json_fname} DNE.'
 
-    evo_dict_fname = os.path.join(dir, 'evo_stats.json')
-    assert os.path.exists(evo_dict_fname), f'evo_stats.json must exist in dir to load from! {evo_dict_fname} DNE.'
+    sample_dict_fname = os.path.join(dir, 'sample_stats.json')
+    assert os.path.exists(sample_dict_fname), f'sample_stats.json must exist in dir to load from! {sample_dict_fname} DNE.'
 
     # Get run_params to recreate the object
     with open(run_params_json_fname, 'r') as f:
@@ -690,16 +690,16 @@ def replot_evo_dict_from_dir(dir, **kwargs):
         json.dump(run_params, f, indent=4)
 
 
-    # Recreate Evolve object, get evo_dict, replot
+    # Recreate Sample object, get sample_dict, replot
     # Have to pass run_dir so it doesn't automatically create a new dir.
-    e = Evolve(run_params['env_name'], run_dir=run_params['run_dir'], load_params_from_dir=True)
+    e = Sample(run_params['env_name'], run_dir=run_params['run_dir'], load_params_from_dir=True)
 
-    # Get evo_dict to replot statistics found
-    with open(evo_dict_fname, 'r') as f:
-        evo_dict = json.load(f)
+    # Get sample_dict to replot statistics found
+    with open(sample_dict_fname, 'r') as f:
+        sample_dict = json.load(f)
 
     # Replot
-    e.save_all_evo_stats(evo_dict, **kwargs)
+    e.save_all_sample_stats(sample_dict, **kwargs)
 
 
 

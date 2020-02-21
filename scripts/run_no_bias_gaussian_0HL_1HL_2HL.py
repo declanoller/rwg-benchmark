@@ -1,20 +1,14 @@
 import path_utils
 import Statistics
-import ray, psutil, time
-
-ray.init(num_cpus=psutil.cpu_count(), ignore_reinit_error=True)
-print('\nInitializing ray... Waiting for workers before starting...')
-time.sleep(2.0)
-print('Starting!\n')
 
 
 '''
-For getting statistics with various combos of parameters.
+For reproducing the figures from the paper.
 '''
 
 
-N_GEN = 10000
-N_TRIALS = 20
+N_SAMPLES = 10000
+N_EPISODES = 20
 
 
 ############################### 0 HL
@@ -27,8 +21,8 @@ Statistics.run_vary_params(
     {
         'env_name' : ['CartPole-v0', 'MountainCar-v0', 'MountainCarContinuous-v0', 'Pendulum-v0', 'Acrobot-v1']
     },
-    N_gen=N_GEN,
-    N_trials=N_TRIALS
+    N_samples=N_SAMPLES,
+    N_episodes=N_EPISODES
 )
 
 
@@ -43,8 +37,8 @@ Statistics.run_vary_params(
         'env_name' : ['CartPole-v0', 'MountainCar-v0', 'MountainCarContinuous-v0', 'Pendulum-v0', 'Acrobot-v1'],
         'N_hidden_units' : [2, 4]
     },
-    N_gen=N_GEN,
-    N_trials=N_TRIALS
+    N_samples=N_SAMPLES,
+    N_episodes=N_EPISODES
 )
 
 ############################### 2 HL
@@ -58,6 +52,6 @@ Statistics.run_vary_params(
     {
         'env_name' : ['CartPole-v0', 'MountainCar-v0', 'MountainCarContinuous-v0', 'Pendulum-v0', 'Acrobot-v1'],
     },
-    N_gen=N_GEN,
-    N_trials=N_TRIALS
+    N_samples=N_SAMPLES,
+    N_episodes=N_EPISODES
 )

@@ -1,33 +1,25 @@
-import pandas as pd
 import path_utils
-from Evolve import Evolve, replot_evo_dict_from_dir
-import traceback as tb
-import os, json, shutil
+
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+import traceback as tb
+import os, json, shutil, time
 import itertools
 from copy import deepcopy
 import pprint as pp
 from tabulate import tabulate
-import seaborn as sns
-import shutil
-import psutil, time
-import ray
 
+from Sample import Sample, replot_sample_dict_from_dir
 
 
 '''
 
-This is very similar to Benchmark.py, but that one was designed (when I had a
-previous setup in mind) to run a set of parameters MULTIPLE times each. I.e.,
-it would create an Evolve object and do evo_obj.evolve() several times to create
-a distribution. Now, there's no "time dependence", so we really just want to be
-able to look at separate parameter settings, but only running them once each.
+For running RWG for various combinations of architectures and collecting statistics.
 
-I'm also getting rid of the whole "solved" aspect for now because it's based
-on numbers that are hard to explain, making it a bit pointless.
-
-run_param_dict() is the most basic function, just doing an evolution for a passed
+run_param_dict() is the most basic function, just doing a sampling for a passed
 param_dict. Other functions basically involve calling it given various inputs.
 
 '''
@@ -36,10 +28,10 @@ param_dict. Other functions basically involve calling it given various inputs.
 
 
 @path_utils.timer
-def run_param_dict(param_dict, N_gen, N_trials, base_dir):
+def run_param_dict(param_dict, N_samples, N_episodes, base_dir):
 
     '''
-    Pass a single params dict to run an evolve() of, including the env_name.
+    Pass a single params dict to run an sample() of, including the env_name.
 
     Also pass an output_dir, or it will use the default output folder.
 
@@ -57,21 +49,21 @@ def run_param_dict(param_dict, N_gen, N_trials, base_dir):
 
     try:
         # Run a single parameters setting
-        e = Evolve(env_name, **params)
-        evo_dict = e.evolve(N_gen, N_trials=N_trials, print_gen=True)
-        e.save_all_evo_stats(evo_dict, save_plots=True)
+        e = Sample(env_name, **params)
+        sample_dict = e.sample(N_samples, N_episodes=N_episodes, print_samp_num=True)
+        e.save_all_sample_stats(sample_dict, save_plots=True)
 
-        return evo_dict
+        return sample_dict
 
     except:
-        print(f'\n\nError in evolve with params: {params}. Traceback:\n')
+        print(f'\n\nError in sample() with params: {params}. Traceback:\n')
         print(tb.format_exc())
         print('\n\nAttempting to continue...\n\n')
 
         return {}
 
-@ray.remote
-def run_param_dict_wrapper(param_dict, N_gen, N_trials, base_dir):
+
+def run_param_dict_wrapper(param_dict, N_samples, N_episodes, base_dir):
 
     # If a run_fname_label is provided, use that to create a more informative dir name.
     # Otherwise, just use the date.
@@ -90,14 +82,14 @@ def run_param_dict_wrapper(param_dict, N_gen, N_trials, base_dir):
     params_dir = os.path.join(base_dir, '{}_{}'.format(run_fname_label, path_utils.get_date_str()))
     os.mkdir(params_dir)
     # Doing this so it just saves directly to this dir, which has a more
-    # informative name than Evolve.__init__() would create.
+    # informative name than Sample.__init__() would create.
     param_dict['run_dir'] = params_dir
 
     print('\n\nNow running with params:')
     pp.pprint(param_dict, width=1)
     print('\n\n')
 
-    stats_dict = run_param_dict(param_dict, N_gen, N_trials, base_dir)
+    stats_dict = run_param_dict(param_dict, N_samples, N_episodes, base_dir)
     return stats_dict
 
 
@@ -110,8 +102,8 @@ def run_multi_envs(env_list, **kwargs):
     running them and recording info.
     '''
 
-    N_gen = kwargs.get('N_gen', 1000)
-    N_trials = kwargs.get('N_trials', 1000)
+    N_samples = kwargs.get('N_samples', 1000)
+    N_episodes = kwargs.get('N_episodes', 1000)
 
     # Create dir for the results of this stats set.
     stats_dir = os.path.join(path_utils.get_output_dir(), 'Stats_{}'.format(path_utils.get_date_str()))
@@ -127,7 +119,7 @@ def run_multi_envs(env_list, **kwargs):
         param_dict = deepcopy(kwargs)
         param_dict['env_name'] = env_name
 
-        stats_dict[env_name] = run_param_dict(param_dict, N_gen, N_trials, stats_dir)
+        stats_dict[env_name] = run_param_dict(param_dict, N_samples, N_episodes, stats_dir)
 
 
     # Save distributions to file
@@ -175,22 +167,20 @@ def run_param_dict_list(params_dict_list, **kwargs):
     # Produce results in parallel
     for d in params_dict_list:
         # For non-ray use
-        '''d['result'] = run_param_dict_wrapper( d,
-                                                        kwargs.get('N_gen', 100),
-                                                        kwargs.get('N_trials', 10),
-                                                        stats_dir)'''
+        d['result'] = run_param_dict_wrapper(   d,
+                                                kwargs.get('N_samples', 100),
+                                                kwargs.get('N_episodes', 10),
+                                                stats_dir)
         # For use with ray
-        d['result_ID'] = run_param_dict_wrapper.remote( d,
-                                                        kwargs.get('N_gen', 100),
-                                                        kwargs.get('N_trials', 10),
-                                                        stats_dir)
+        '''d['result_ID'] = run_param_dict_wrapper.remote( d,
+                                                        kwargs.get('N_samples', 100),
+                                                        kwargs.get('N_episodes', 10),
+                                                        stats_dir)'''
 
     # Retrieve results from ID
     for d in params_dict_list:
-        d['stats_dict'] = ray.get(d['result_ID'])
-        d.pop('result_ID')
-        #d['stats_dict'] = d['result'] # for non-ray use
-        #d.pop('result')
+        d['stats_dict'] = d['result'] # for non-ray use
+        d.pop('result')
 
     # Return passed list, which should have dicts
     # modified with the results
@@ -212,7 +202,7 @@ def run_vary_params(constant_params_dict, vary_params_dict, **kwargs):
 
     constant_params_dict = {
         'env_name' : 'CartPole-v0',
-        'N_gen' : 1000,
+        'N_samples' : 1000,
         'N_dist' : 100,
         'NN' : 'FFNN_multilayer'
     }
@@ -243,7 +233,7 @@ def run_vary_params(constant_params_dict, vary_params_dict, **kwargs):
         'const_params' : constant_params_dict,
         'vary_params' : vary_params_dict
     }
-    other_run_params = ['N_gen', 'N_trials']
+    other_run_params = ['N_samples', 'N_episodes']
     for p in other_run_params:
         if p in kwargs.keys():
             all_params[p] = kwargs.get(p, None)
@@ -440,14 +430,14 @@ def make_total_score_df(stats_dir):
         match_dirs = [x for x in os.listdir(runs_dir) if run_label in x]
         assert len(match_dirs)==1, 'Must only have one dir matching label!'
         vary_dir = match_dirs[0]
-        # Clumsy, but: walk through this dir until you find the evo_stats.json,
+        # Clumsy, but: walk through this dir until you find the sample_stats.json,
         # then add its scores to the row_dict
         for root, dirs, files in os.walk(os.path.join(runs_dir, vary_dir)):
-            if 'evo_stats.json' in files:
-                with open(os.path.join(root, 'evo_stats.json'), 'r') as f:
-                    evo_dict = json.load(f)
+            if 'sample_stats.json' in files:
+                with open(os.path.join(root, 'sample_stats.json'), 'r') as f:
+                    sample_dict = json.load(f)
 
-                row_dict['all_scores'] = evo_dict['all_scores']
+                row_dict['all_scores'] = sample_dict['all_scores']
 
         # pandas has the nice perk that if you create a df from a dict where
         # some of the entries are constants and one entry is a list, it duplicates
@@ -603,14 +593,14 @@ def plot_2x2_grids(stats_dir, overview_df, params_dict, **kwargs):
             match_dirs = [x for x in os.listdir(all_runs_dir) if run_fname_label in x]
             assert len(match_dirs)==1, 'Must only have one dir matching label!'
             vary_dir = match_dirs[0]
-            # Clumsy, but: walk through this dir until you find the evo_stats.json,
+            # Clumsy, but: walk through this dir until you find the sample_stats.json,
             # then add its scores to the row_dict
             for root, dirs, files in os.walk(os.path.join(all_runs_dir, vary_dir)):
-                if 'evo_stats.json' in files:
-                    with open(os.path.join(root, 'evo_stats.json'), 'r') as f:
-                        evo_dict = json.load(f)
+                if 'sample_stats.json' in files:
+                    with open(os.path.join(root, 'sample_stats.json'), 'r') as f:
+                        sample_dict = json.load(f)
 
-                    env_score_dict[env] = evo_dict['all_trials']
+                    env_score_dict[env] = sample_dict['all_trials']
 
 
     plot_pt_alpha = 0.2
@@ -649,8 +639,8 @@ def plot_2x2_grids(stats_dir, overview_df, params_dict, **kwargs):
     ################################### Plot sorted trials and mean
 
 
-    xlabel = 'Sorted by mean generation score'
-    ylabel = 'Generation trial scores'
+    xlabel = 'Sorted by mean sample score'
+    ylabel = 'Sample trial scores'
     plot_fname = 'trials_mean_sorted'
 
     plt.close('all')
@@ -701,9 +691,9 @@ def plot_2x2_grids(stats_dir, overview_df, params_dict, **kwargs):
 
     ################################### Plot sorted variances
 
-    xlabel = 'Mean generation score'
-    ylabel = 'Generation score variance'
-    plot_fname = 'generation_trials_variance'
+    xlabel = 'Mean sample score'
+    ylabel = 'Sample score variance'
+    plot_fname = 'sample_trials_variance'
 
 
     plt.close('all')
@@ -750,9 +740,9 @@ def plot_2x2_grids(stats_dir, overview_df, params_dict, **kwargs):
 
 
     ################################### Plot log hists
-    xlabel = 'Mean generation score'
+    xlabel = 'Mean sample score'
     ylabel = 'log(counts)'
-    plot_fname = 'mean_gen_score_log_hist'
+    plot_fname = 'mean_sample_score_log_hist'
 
 
     plt.close('all')
@@ -894,11 +884,11 @@ def plot_envs_vs_NN_arch(stats_dir, **kwargs):
             print(env_arch_tuple)
 
             for root, dirs, files in os.walk(os.path.join(all_runs_dir, vary_dir)):
-                if 'evo_stats.json' in files:
-                    with open(os.path.join(root, 'evo_stats.json'), 'r') as f:
-                        evo_dict = json.load(f)
+                if 'sample_stats.json' in files:
+                    with open(os.path.join(root, 'sample_stats.json'), 'r') as f:
+                        sample_dict = json.load(f)
 
-                    env_arch_score_dict[env_arch_tuple] = evo_dict['all_trials']'''
+                    env_arch_score_dict[env_arch_tuple] = sample_dict['all_trials']'''
 
 
     unit_plot_w = 2.7
@@ -1518,20 +1508,20 @@ def walk_multi_dir(multi_dir, params_dict_list):
                         all_keys_match = False
                         break
 
-                # If it's the right json, get the evo_stats.
+                # If it's the right json, get the sample_stats.
                 if all_keys_match:
                     #print(f'Matching dir: {root}')
-                    with open(os.path.join(root, 'evo_stats.json'), 'r') as f:
-                        evo_stats = json.load(f)
+                    with open(os.path.join(root, 'sample_stats.json'), 'r') as f:
+                        sample_stats = json.load(f)
 
-                    all_trials = np.array(evo_stats['all_trials'])
+                    all_trials = np.array(sample_stats['all_trials'])
                     all_trials_mean = np.mean(all_trials, axis=1)
                     params_results = params_dict.copy()
                     params_results['best_score'] = np.max(all_trials_mean)
                     params_results['percentile_99.9'] = np.percentile(all_trials_mean, 99.9)
                     params_results['all_trials'] = all_trials
-                    if 'total_runtime' in evo_stats.keys():
-                        params_results['total_runtime'] = evo_stats['total_runtime']
+                    if 'total_runtime' in sample_stats.keys():
+                        params_results['total_runtime'] = sample_stats['total_runtime']
                     params_results_dict_list.append(params_results)
                     break
 
@@ -1660,13 +1650,13 @@ def vary_params_cross_products(constant_params_dict, vary_params_dict):
 
 def replot_whole_stats_dir(stats_dir, **kwargs):
 
-    if kwargs.get('replot_evo_dirs', False):
-        print('\nReplotting all evo dirs...\n')
+    if kwargs.get('replot_sample_dirs', False):
+        print('\nReplotting all sample dirs...\n')
 
         for root, dirs, files in os.walk(stats_dir):
             if 'run_params.json' in files:
                 print('Replotting for dir {}'.format(root.split('/')[-1]))
-                replot_evo_dict_from_dir(root)
+                replot_sample_dict_from_dir(root)
 
 
     if kwargs.get('replot_agg_stats', True):
