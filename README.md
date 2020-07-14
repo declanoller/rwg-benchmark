@@ -1,7 +1,7 @@
 
 # Random Weight Guessing (RWG) benchmarking
 
-Repository for the paper "Analyzing Reinforcement Learning Benchmarks with Random Weight Guessing", accepted for publication in AAMAS 2020.
+Repository for the paper ["Analyzing Reinforcement Learning Benchmarks with Random Weight Guessing"](https://arxiv.org/abs/2004.07707), accepted for publication in AAMAS 2020.
 
 ## Overview of RWG
 

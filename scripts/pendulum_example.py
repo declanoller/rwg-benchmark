@@ -31,8 +31,8 @@ e = Sample(
     N_hidden_layers=1,
     N_hidden_units=4,
     random_dist="uniform",
-    use_bias=True,
     random_dist_scaling=10.0,
+    use_bias=True,
 )
 sample_dict = e.sample(100000, N_episodes=15, print_samp_num=True)
 e.save_all_sample_stats(sample_dict)

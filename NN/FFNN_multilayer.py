@@ -161,7 +161,9 @@ class FFNN_multilayer:
             if self.use_bias:
                 x = np.concatenate((x, [1.0]))
             x = np.dot(w, x)
-            x = self.act_fn(x)
+            # Only apply activation function to intermediate layers
+            if i < self.N_hidden_layers:
+                x = self.act_fn(x)
 
         return x
 
