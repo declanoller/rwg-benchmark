@@ -1,4 +1,3 @@
-from RNN1L import RNN1L
 from FFNN_multilayer import FFNN_multilayer
 import numpy as np
 import itertools
@@ -50,7 +49,7 @@ class Agent:
                 self.N_outputs = self.N_actions
 
         # Select the NN class to use.
-        NN_types_dict = {"RNN": RNN1L, "FFNN": FFNN_multilayer}
+        NN_types_dict = {"FFNN": FFNN_multilayer}
 
         self.NN_type = kwargs.get("NN", "FFNN")
         assert (

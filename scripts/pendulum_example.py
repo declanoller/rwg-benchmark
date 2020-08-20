@@ -24,7 +24,6 @@ It works!
 
 """
 
-
 e = Sample(
     "Pendulum-v0",
     NN="FFNN",
@@ -32,9 +31,10 @@ e = Sample(
     N_hidden_units=4,
     random_dist="uniform",
     random_dist_scaling=10.0,
-    use_bias=True,
+    use_bias=False,
+    max_episode_steps=200,
 )
-sample_dict = e.sample(100000, N_episodes=15, print_samp_num=True)
+sample_dict = e.sample(10000, N_episodes=15, print_samp_num=True)
 e.save_all_sample_stats(sample_dict)
 
 print("\n\nBest score found = {:.2f}\n".format(sample_dict["best_score"]))
