@@ -30,16 +30,6 @@ Uses the Agent class, which handles the NN and related stuff.
 class Sample:
     def __init__(self, env_name, **kwargs):
 
-        # The search method used. Default is Random Weight Guessing (RWG).
-        self.search_method = kwargs.get("search_method", "RWG")
-        assert self.search_method in [
-            "RWG",
-            "gaussian_noise_hill_climb",
-            "grid_search",
-            "bin_grid_search",
-            "sparse_bin_grid_search",
-        ], "Must supply valid search_method!"
-
         # Create env, create agent
         self.setup_env(env_name)
         self.agent = Agent.Agent(self.env, **kwargs)
@@ -160,7 +150,7 @@ class Sample:
                     print(f"Search done in samp_num {samp_num}\n\n")
                     break
         except:
-            print("Something stopped it!\n")
+            print("\n\nSomething stopped sample loop. Continuing...\n")
 
         total_runtime = time.time() - start_time
 
@@ -226,17 +216,7 @@ class Sample:
         For getting the next sample using some selection criteria.
         Right now it's just RWG, which resets the weights randomly.
         """
-
-        if self.search_method == "RWG":
-            self.agent.set_random_weights()
-
-        elif self.search_method in [
-            "grid_search",
-            "bin_grid_search",
-            "sparse_bin_grid_search",
-        ]:
-
-            self.agent.mutate_grid_search()
+        self.agent.set_random_weights()
 
     ################################ saving functions
 
@@ -246,7 +226,6 @@ class Sample:
         """
 
         self.run_params["env_name"] = self.env_name
-        self.run_params["search_method"] = self.search_method
         self.run_params["dt_str"] = self.dt_str
         self.run_params["run_dir"] = self.run_dir
         self.run_params["NN_type"] = self.agent.NN_type
@@ -268,7 +247,6 @@ class Sample:
             self.run_params = json.load(f)
 
         self.env_name = self.run_params["env_name"]
-        self.search_method = self.run_params["search_method"]
         self.dt_str = self.run_params["dt_str"]
         self.run_dir = self.run_params["run_dir"]
         self.agent.NN_type = self.run_params[

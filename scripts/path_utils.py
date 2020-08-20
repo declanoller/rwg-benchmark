@@ -18,9 +18,13 @@ been called and dirs added to the system path.
 ROOT_DIR = os.path.join(os.path.dirname(__file__), "../")
 SRC_DIR = os.path.join(ROOT_DIR, "src")
 OUTPUT_DIR = os.path.join(ROOT_DIR, "output")
+TMP_OUTPUT_DIR = os.path.join(OUTPUT_DIR, "tmp")
 
 if not os.path.exists(OUTPUT_DIR):
     os.mkdir(OUTPUT_DIR)
+
+if not os.path.exists(TMP_OUTPUT_DIR):
+    os.mkdir(TMP_OUTPUT_DIR)
 
 sys.path.append(ROOT_DIR)
 sys.path.append(SRC_DIR)
