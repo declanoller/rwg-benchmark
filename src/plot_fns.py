@@ -18,7 +18,8 @@ def plot_score_percentiles(save_dir, sample_dict, env_name, dt_str, **kwargs):
     ###################### In mean order, with all trials
 
     all_trials = sample_dict["all_trials"]
-    all_trials_mean = np.mean(all_trials, axis=1)
+    # all_trials_mean = np.mean(all_trials, axis=1)
+    all_trials_mean = [np.mean(x) for x in all_trials]
 
     percs = np.linspace(0, 100.0, 20)
     perc_values = np.percentile(all_trials_mean, percs)
@@ -287,7 +288,8 @@ def plot_all_trial_stats(save_dir, sample_dict, env_name, dt_str, **kwargs):
     ####################### Episode score variance
     plt.close("all")
 
-    sigma = np.std(sample_dict["all_trials"], axis=1)
+    # sigma = np.std(sample_dict["all_trials"], axis=1)
+    sigma = [np.std(x) for x in sample_dict["all_trials"]]
 
     plt.plot(
         sample_dict["all_scores"],
@@ -313,7 +315,8 @@ def plot_all_trial_stats(save_dir, sample_dict, env_name, dt_str, **kwargs):
     ####################### Min sample score
     plt.close("all")
 
-    trial_min = np.min(sample_dict["all_trials"], axis=1)
+    # trial_min = np.min(sample_dict["all_trials"], axis=1)
+    trial_min = [np.min(x) for x in sample_dict["all_trials"]]
 
     plt.plot(
         sample_dict["all_scores"],
@@ -342,7 +345,8 @@ def plot_all_trial_stats(save_dir, sample_dict, env_name, dt_str, **kwargs):
     ####################### Max episode score
     plt.close("all")
 
-    trial_max = np.max(sample_dict["all_trials"], axis=1)
+    # trial_max = np.max(sample_dict["all_trials"], axis=1)
+    trial_max = [np.max(x) for x in sample_dict["all_trials"]]
 
     plt.plot(
         sample_dict["all_scores"],
@@ -371,8 +375,10 @@ def plot_all_trial_stats(save_dir, sample_dict, env_name, dt_str, **kwargs):
     ####################### Min and max episode score
     plt.close("all")
 
-    trial_min = np.min(sample_dict["all_trials"], axis=1)
-    trial_max = np.max(sample_dict["all_trials"], axis=1)
+    # trial_min = np.min(sample_dict["all_trials"], axis=1)
+    # trial_max = np.max(sample_dict["all_trials"], axis=1)
+    trial_min = [np.min(x) for x in sample_dict["all_trials"]]
+    trial_max = [np.max(x) for x in sample_dict["all_trials"]]
 
     plt.plot(
         sample_dict["all_scores"],
