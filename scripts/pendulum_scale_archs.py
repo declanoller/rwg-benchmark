@@ -17,17 +17,22 @@ It only runs Pendulum, but for each, tries both uniform and normal dists
 N_SAMPLES = 20000
 N_EPISODES = 20
 
-COMMON_ARGS = {
+COMMON_CONST_ARGS = {
+    "NN": "FFNN",
+    "random_dist_scaling": 10.0,
+    "drop_score_threshold": -500,
+}
+
+COMMON_VARY_ARGS = {
     "env_name": ["Pendulum-v0"],
     "random_dist": ["uniform", "normal"],
     "use_bias": [True, False],
-    "drop_score_threshold": -500,
 }
 
 # ############################## 0 HL
 Statistics.run_vary_params(
-    {"NN": "FFNN", "N_hidden_layers": 0, "random_dist_scaling": 10.0},
-    {**COMMON_ARGS},
+    {**COMMON_CONST_ARGS, "N_hidden_layers": 0,},
+    {**COMMON_VARY_ARGS},
     N_samples=N_SAMPLES,
     N_episodes=N_EPISODES,
 )
@@ -35,21 +40,16 @@ Statistics.run_vary_params(
 
 # ############################## 1 HL
 Statistics.run_vary_params(
-    {"NN": "FFNN", "N_hidden_layers": 1, "random_dist_scaling": 10.0},
-    {**COMMON_ARGS, "N_hidden_units": [2, 4],},
+    {**COMMON_CONST_ARGS, "N_hidden_layers": 1,},
+    {**COMMON_VARY_ARGS, "N_hidden_units": [2, 4],},
     N_samples=N_SAMPLES,
     N_episodes=N_EPISODES,
 )
 
 # ############################## 2 HL
 Statistics.run_vary_params(
-    {
-        "NN": "FFNN",
-        "N_hidden_layers": 2,
-        "N_hidden_units": 4,
-        "random_dist_scaling": 10.0,
-    },
-    {**COMMON_ARGS},
+    {**COMMON_CONST_ARGS, "N_hidden_layers": 2, "N_hidden_units": 4,},
+    {**COMMON_VARY_ARGS},
     N_samples=N_SAMPLES,
     N_episodes=N_EPISODES,
 )
