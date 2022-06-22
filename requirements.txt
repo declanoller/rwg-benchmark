@@ -4,7 +4,7 @@ future==0.18.2
 gym==0.17.2
 kiwisolver==1.2.0
 matplotlib==3.2.2
-numpy==1.19.0
+numpy==1.22.0
 pandas==1.0.5
 pkg-resources==0.0.0
 pyglet==1.5.0
